@@ -2,7 +2,7 @@
 
 namespace Tests\Feature;
 
-use App\Models\ProcessStatus;
+use App\Enums\ProcessStatusId;
 use App\Models\ReportProcess;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -18,7 +18,7 @@ class ProcessControllerTest extends TestCase
             'rp_pid' => 100,
             'rp_start_datetime' => Carbon::now()->subMinutes(2),
             'rp_exec_time' => 42,
-            'ps_id' => ProcessStatus::COMPLETED,
+            'ps_id' => ProcessStatusId::Completed,
             'rp_file_save_path' => 'reports_test/some.csv',
         ]);
 
@@ -26,7 +26,7 @@ class ProcessControllerTest extends TestCase
             'rp_pid' => 101,
             'rp_start_datetime' => Carbon::now()->subMinute(),
             'rp_exec_time' => 7,
-            'ps_id' => ProcessStatus::ERROR,
+            'ps_id' => ProcessStatusId::Error,
             'rp_file_save_path' => null,
         ]);
 
@@ -55,7 +55,7 @@ class ProcessControllerTest extends TestCase
             'rp_pid' => 1,
             'rp_start_datetime' => Carbon::now(),
             'rp_exec_time' => 1,
-            'ps_id' => ProcessStatus::COMPLETED,
+            'ps_id' => ProcessStatusId::Completed,
             'rp_file_save_path' => $relPath,
         ]);
 
@@ -76,7 +76,7 @@ class ProcessControllerTest extends TestCase
             'rp_pid' => 1,
             'rp_start_datetime' => Carbon::now(),
             'rp_exec_time' => 1,
-            'ps_id' => ProcessStatus::COMPLETED,
+            'ps_id' => ProcessStatusId::Completed,
             'rp_file_save_path' => 'reports_test/nope.csv',
         ]);
 
@@ -89,7 +89,7 @@ class ProcessControllerTest extends TestCase
             'rp_pid' => 1,
             'rp_start_datetime' => Carbon::now(),
             'rp_exec_time' => 1,
-            'ps_id' => ProcessStatus::ERROR,
+            'ps_id' => ProcessStatusId::Error,
             'rp_file_save_path' => null,
         ]);
 

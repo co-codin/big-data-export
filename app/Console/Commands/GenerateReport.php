@@ -2,9 +2,9 @@
 
 namespace App\Console\Commands;
 
+use App\Enums\ProcessStatusId;
 use App\Jobs\FinalizeReportJob;
 use App\Jobs\GenerateReportChunkJob;
-use App\Models\ProcessStatus;
 use App\Models\Product;
 use App\Models\ReportProcess;
 use Illuminate\Bus\Batch;
@@ -44,7 +44,7 @@ class GenerateReport extends Command
                 'rp_pid' => $pid,
                 'rp_start_datetime' => $startedAt,
                 'rp_exec_time' => (int) round((microtime(true) - $startMicro) * 1000),
-                'ps_id' => ProcessStatus::ERROR,
+                'ps_id' => ProcessStatusId::Error,
             ]);
             $this->error("Ошибка: для категории {$categoryId} не найдено товаров.");
             return self::FAILURE;
@@ -76,7 +76,7 @@ class GenerateReport extends Command
             $process = ReportProcess::create([
                 'rp_pid' => $pid,
                 'rp_start_datetime' => $startedAt,
-                'ps_id' => ProcessStatus::STARTED,
+                'ps_id' => ProcessStatusId::Started,
             ]);
 
             $rpId = (int) $process->rp_id;

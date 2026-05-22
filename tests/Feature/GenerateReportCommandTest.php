@@ -6,7 +6,7 @@ use App\Jobs\FinalizeReportJob;
 use App\Jobs\GenerateReportChunkJob;
 use App\Models\Manufacturer;
 use App\Models\Price;
-use App\Models\ProcessStatus;
+use App\Enums\ProcessStatusId;
 use App\Models\Product;
 use App\Models\ReportProcess;
 use Illuminate\Bus\Batch;
@@ -31,7 +31,7 @@ class GenerateReportCommandTest extends TestCase
 
         $this->assertSame(1, ReportProcess::count(), 'rejected attempt is still recorded');
         $row = ReportProcess::first();
-        $this->assertSame(ProcessStatus::ERROR, (int) $row->ps_id);
+        $this->assertSame(ProcessStatusId::Error, $row->ps_id);
         $this->assertNull($row->rp_file_save_path);
         Bus::assertNothingBatched();
     }
@@ -62,7 +62,7 @@ class GenerateReportCommandTest extends TestCase
 
         // One report_process row per manufacturer, all in Запуск.
         $this->assertSame(2, ReportProcess::count());
-        $this->assertSame(2, ReportProcess::where('ps_id', ProcessStatus::STARTED)->count());
+        $this->assertSame(2, ReportProcess::where('ps_id', ProcessStatusId::Started->value)->count());
 
         Bus::assertBatchCount(2);
         Bus::assertBatched(fn (PendingBatch $b) => $b->jobs->count() === 3 && str_starts_with($b->name, 'report:'));
@@ -91,7 +91,7 @@ class GenerateReportCommandTest extends TestCase
 
         $process = ReportProcess::first();
         $this->assertNotNull($process);
-        $this->assertSame(ProcessStatus::COMPLETED, (int) $process->ps_id);
+        $this->assertSame(ProcessStatusId::Completed, $process->ps_id);
         $this->assertNotNull($process->rp_file_save_path);
 
         $finalPath = storage_path('app/'.$process->rp_file_save_path);

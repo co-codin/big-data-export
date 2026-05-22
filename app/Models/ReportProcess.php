@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\ProcessStatusId;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -21,6 +22,7 @@ class ReportProcess extends Model
 
     protected $casts = [
         'rp_start_datetime' => 'datetime',
+        'ps_id' => ProcessStatusId::class,
     ];
 
     public function status(): BelongsTo

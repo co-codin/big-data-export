@@ -3,7 +3,7 @@
 namespace Tests\Feature;
 
 use App\Jobs\FinalizeReportJob;
-use App\Models\ProcessStatus;
+use App\Enums\ProcessStatusId;
 use App\Models\ReportProcess;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -32,7 +32,7 @@ class FinalizeReportJobTest extends TestCase
         ))->handle();
 
         $process->refresh();
-        $this->assertSame(ProcessStatus::COMPLETED, (int) $process->ps_id);
+        $this->assertSame(ProcessStatusId::Completed, $process->ps_id);
         $this->assertSame(config('reports.subdir').'/merged.csv', $process->rp_file_save_path);
 
         $finalPath = storage_path('app/'.$process->rp_file_save_path);
@@ -93,7 +93,7 @@ class FinalizeReportJobTest extends TestCase
         ))->handle();
 
         $process->refresh();
-        $this->assertSame(ProcessStatus::ERROR, (int) $process->ps_id);
+        $this->assertSame(ProcessStatusId::Error, $process->ps_id);
         $this->assertNull($process->rp_file_save_path);
         $this->assertDirectoryDoesNotExist(storage_path('app/'.$tmpDir));
         Log::shouldHaveReceived('error')->atLeast()->once();
@@ -122,7 +122,7 @@ class FinalizeReportJobTest extends TestCase
         return ReportProcess::create([
             'rp_pid' => 0,
             'rp_start_datetime' => Carbon::now(),
-            'ps_id' => ProcessStatus::STARTED,
+            'ps_id' => ProcessStatusId::Started,
         ]);
     }
 }

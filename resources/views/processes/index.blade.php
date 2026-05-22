@@ -57,8 +57,8 @@
             <tbody>
                 @foreach ($processes as $process)
                     @php
-                        $isError = (int) $process->ps_id === \App\Models\ProcessStatus::ERROR;
-                        $isCompleted = (int) $process->ps_id === \App\Models\ProcessStatus::COMPLETED;
+                        $isError = $process->ps_id === \App\Enums\ProcessStatusId::Error;
+                        $isCompleted = $process->ps_id === \App\Enums\ProcessStatusId::Completed;
                     @endphp
                     <tr class="{{ $isError ? 'status-error' : '' }}">
                         <td>{{ optional($process->rp_start_datetime)->format('Y-m-d H:i:s') }}</td>

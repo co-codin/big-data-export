@@ -2,7 +2,7 @@
 
 namespace App\Jobs;
 
-use App\Models\ProcessStatus;
+use App\Enums\ProcessStatusId;
 use App\Models\ReportProcess;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -49,7 +49,7 @@ class FinalizeReportJob implements ShouldQueue
         if ($this->hadFailures) {
             $this->cleanupTmp();
             $process->update([
-                'ps_id' => ProcessStatus::ERROR,
+                'ps_id' => ProcessStatusId::Error,
                 'rp_exec_time' => $this->execMsFrom($startMicro, $process),
             ]);
             Log::error('FinalizeReportJob: batch had failures, marking process as Ошибка', [
@@ -91,7 +91,7 @@ class FinalizeReportJob implements ShouldQueue
             $out = null;
 
             $process->update([
-                'ps_id' => ProcessStatus::COMPLETED,
+                'ps_id' => ProcessStatusId::Completed,
                 'rp_exec_time' => $this->execMsFrom($startMicro, $process),
                 'rp_file_save_path' => $relativeOutput,
             ]);
@@ -111,7 +111,7 @@ class FinalizeReportJob implements ShouldQueue
             $this->cleanupTmp();
 
             $process->update([
-                'ps_id' => ProcessStatus::ERROR,
+                'ps_id' => ProcessStatusId::Error,
                 'rp_exec_time' => $this->execMsFrom($startMicro, $process),
             ]);
             Log::error('FinalizeReportJob: failed', [

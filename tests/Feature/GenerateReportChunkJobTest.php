@@ -5,7 +5,7 @@ namespace Tests\Feature;
 use App\Jobs\GenerateReportChunkJob;
 use App\Models\Manufacturer;
 use App\Models\Price;
-use App\Models\ProcessStatus;
+use App\Enums\ProcessStatusId;
 use App\Models\Product;
 use App\Models\ReportProcess;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -128,7 +128,7 @@ class GenerateReportChunkJobTest extends TestCase
         return ReportProcess::create([
             'rp_pid' => 0,
             'rp_start_datetime' => Carbon::now(),
-            'ps_id' => ProcessStatus::STARTED,
+            'ps_id' => ProcessStatusId::Started,
         ]);
     }
 }
