@@ -6,7 +6,6 @@ use App\Jobs\FinalizeReportJob;
 use App\Enums\ProcessStatusId;
 use App\Models\ReportProcess;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 use Tests\TestCase;
 
@@ -119,10 +118,6 @@ class FinalizeReportJobTest extends TestCase
 
     private function makeProcess(): ReportProcess
     {
-        return ReportProcess::create([
-            'rp_pid' => 0,
-            'rp_start_datetime' => Carbon::now(),
-            'ps_id' => ProcessStatusId::Started,
-        ]);
+        return ReportProcess::factory()->started()->create();
     }
 }

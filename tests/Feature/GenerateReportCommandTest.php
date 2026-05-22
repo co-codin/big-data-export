@@ -46,17 +46,13 @@ class GenerateReportCommandTest extends TestCase
         Bus::fake();
         Config::set('reports.chunk_size', 2);  // force multiple chunks even on small data
 
-        $acme = Manufacturer::create(['manufacturer_name' => 'Acme']);
-        $beta = Manufacturer::create(['manufacturer_name' => 'Beta']);
+        $acme = Manufacturer::factory()->create(['manufacturer_name' => 'Acme']);
+        $beta = Manufacturer::factory()->create(['manufacturer_name' => 'Beta']);
 
         // 5 acme products in cat 7 → ceil(5/2) = 3 chunks
-        for ($i = 0; $i < 5; $i++) {
-            Product::create(['product_name' => "A$i", 'category_id' => 7, 'manufacturer_id' => $acme->manufacturer_id]);
-        }
+        Product::factory()->count(5)->for($acme)->create(['category_id' => 7]);
         // 2 beta products in cat 7 → 1 chunk
-        for ($i = 0; $i < 2; $i++) {
-            Product::create(['product_name' => "B$i", 'category_id' => 7, 'manufacturer_id' => $beta->manufacturer_id]);
-        }
+        Product::factory()->count(2)->for($beta)->create(['category_id' => 7]);
 
         $this->artisan('report:generate', ['category_id' => 7])->assertExitCode(0);
 
@@ -75,16 +71,15 @@ class GenerateReportCommandTest extends TestCase
 
     public function test_sync_runs_full_pipeline_inline_and_writes_one_merged_file_per_manufacturer(): void
     {
-        $mfr = Manufacturer::create(['manufacturer_name' => 'Acme']);
-
         // 3 products with prices in the last 7 days → multiple chunks if chunk_size=2.
         Config::set('reports.chunk_size', 2);
-        $products = [];
+
+        $mfr = Manufacturer::factory()->create(['manufacturer_name' => 'Acme']);
+
         foreach (['Widget', 'Gadget', 'Gizmo'] as $name) {
-            $p = Product::create(['product_name' => $name, 'category_id' => 8, 'manufacturer_id' => $mfr->manufacturer_id]);
-            Price::create(['product_id' => $p->product_id, 'price' => 10.00, 'price_date' => Carbon::today()->subDays(5)]);
-            Price::create(['product_id' => $p->product_id, 'price' => 99.99, 'price_date' => Carbon::today()->subDays(1)]);
-            $products[] = $p;
+            $p = Product::factory()->for($mfr)->create(['product_name' => $name, 'category_id' => 8]);
+            Price::factory()->for($p)->create(['price' => 10.00, 'price_date' => Carbon::today()->subDays(5)]);
+            Price::factory()->for($p)->create(['price' => 99.99, 'price_date' => Carbon::today()->subDays(1)]);
         }
 
         $this->artisan('report:generate', ['category_id' => 8, '--sync' => true])->assertExitCode(0);
@@ -128,12 +123,8 @@ class GenerateReportCommandTest extends TestCase
     {
         Bus::fake();
 
-        $mfr = Manufacturer::create(['manufacturer_name' => 'Acme']);
-        Product::create([
-            'product_name' => 'X',
-            'category_id' => 21,
-            'manufacturer_id' => $mfr->manufacturer_id,
-        ]);
+        $mfr = Manufacturer::factory()->create();
+        Product::factory()->for($mfr)->create(['category_id' => 21]);
 
         $this->artisan('report:generate', ['category_id' => 21])->assertExitCode(0);
 
@@ -169,12 +160,8 @@ class GenerateReportCommandTest extends TestCase
     {
         Bus::fake();
 
-        $mfr = Manufacturer::create(['manufacturer_name' => 'Acme']);
-        Product::create([
-            'product_name' => 'X',
-            'category_id' => 30,
-            'manufacturer_id' => $mfr->manufacturer_id,
-        ]);
+        $mfr = Manufacturer::factory()->create();
+        Product::factory()->for($mfr)->create(['category_id' => 30]);
 
         $this->artisan('report:generate', ['category_id' => 30])->assertExitCode(0);
 

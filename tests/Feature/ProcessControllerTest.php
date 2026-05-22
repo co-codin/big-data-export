@@ -2,10 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Enums\ProcessStatusId;
 use App\Models\ReportProcess;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 class ProcessControllerTest extends TestCase
@@ -14,21 +12,8 @@ class ProcessControllerTest extends TestCase
 
     public function test_index_lists_processes_and_highlights_errors(): void
     {
-        $ok = ReportProcess::create([
-            'rp_pid' => 100,
-            'rp_start_datetime' => Carbon::now()->subMinutes(2),
-            'rp_exec_time' => 42,
-            'ps_id' => ProcessStatusId::Completed,
-            'rp_file_save_path' => 'reports_test/some.csv',
-        ]);
-
-        $broken = ReportProcess::create([
-            'rp_pid' => 101,
-            'rp_start_datetime' => Carbon::now()->subMinute(),
-            'rp_exec_time' => 7,
-            'ps_id' => ProcessStatusId::Error,
-            'rp_file_save_path' => null,
-        ]);
+        $ok = ReportProcess::factory()->completed('reports_test/some.csv')->create();
+        $broken = ReportProcess::factory()->errored()->create();
 
         $response = $this->get('/');
 
@@ -51,13 +36,7 @@ class ProcessControllerTest extends TestCase
         @mkdir(dirname($absPath), 0775, true);
         file_put_contents($absPath, "\xEF\xBB\xBFmanufacturer_name,product_name,price,price_date\n");
 
-        $process = ReportProcess::create([
-            'rp_pid' => 1,
-            'rp_start_datetime' => Carbon::now(),
-            'rp_exec_time' => 1,
-            'ps_id' => ProcessStatusId::Completed,
-            'rp_file_save_path' => $relPath,
-        ]);
+        $process = ReportProcess::factory()->completed($relPath)->create();
 
         $response = $this->get(route('processes.download', ['id' => $process->rp_id]));
 
@@ -72,26 +51,16 @@ class ProcessControllerTest extends TestCase
 
     public function test_download_returns_404_when_file_is_missing_on_disk(): void
     {
-        $process = ReportProcess::create([
-            'rp_pid' => 1,
-            'rp_start_datetime' => Carbon::now(),
-            'rp_exec_time' => 1,
-            'ps_id' => ProcessStatusId::Completed,
-            'rp_file_save_path' => 'reports_test/nope.csv',
-        ]);
+        $process = ReportProcess::factory()
+            ->completed('reports_test/nope.csv')
+            ->create();
 
         $this->get(route('processes.download', ['id' => $process->rp_id]))->assertNotFound();
     }
 
     public function test_download_returns_404_when_no_file_path_stored(): void
     {
-        $process = ReportProcess::create([
-            'rp_pid' => 1,
-            'rp_start_datetime' => Carbon::now(),
-            'rp_exec_time' => 1,
-            'ps_id' => ProcessStatusId::Error,
-            'rp_file_save_path' => null,
-        ]);
+        $process = ReportProcess::factory()->errored()->create();
 
         $this->get(route('processes.download', ['id' => $process->rp_id]))->assertNotFound();
     }

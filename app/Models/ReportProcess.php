@@ -3,11 +3,14 @@
 namespace App\Models;
 
 use App\Enums\ProcessStatusId;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ReportProcess extends Model
 {
+    use HasFactory;
+
     protected $table = 'report_process';
     protected $primaryKey = 'rp_id';
     public $timestamps = false;
