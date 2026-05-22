@@ -1,0 +1,7 @@
+{
+    "cloud": false,
+    "guidelines": true,
+    "skills": [
+        "laravel-best-practices"
+    ]
+}
