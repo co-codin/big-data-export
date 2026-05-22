@@ -1,0 +1,86 @@
+services:
+  app:
+    build: .
+    image: report-app:latest
+    container_name: report-app
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    env_file:
+      - .env.example
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_DATABASE: app
+      DB_USERNAME: app
+      DB_PASSWORD: secret
+      REDIS_HOST: redis
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    image: report-app:latest
+    container_name: report-worker
+    volumes:
+      - .:/app
+    env_file:
+      - .env.example
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_DATABASE: app
+      DB_USERNAME: app
+      DB_PASSWORD: secret
+      REDIS_HOST: redis
+    depends_on:
+      app:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    command: >
+      sh -c "
+        [ -d vendor ] || composer install --no-interaction --prefer-dist;
+        [ -f .env ] || cp .env.example .env;
+        until php -r 'new PDO(\"pgsql:host=\" . getenv(\"DB_HOST\") . \";port=\" . getenv(\"DB_PORT\") . \";dbname=\" . getenv(\"DB_DATABASE\"), getenv(\"DB_USERNAME\"), getenv(\"DB_PASSWORD\"));' 2>/dev/null; do
+          echo 'worker: waiting for postgres...'; sleep 2;
+        done;
+        exec php artisan queue:work redis --queue=reports --tries=1 --timeout=1800 --sleep=1 -v
+      "
+
+  db:
+    image: postgres:16-alpine
+    container_name: report-db
+    environment:
+      POSTGRES_DB: app
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: secret
+    # Host port not published by default. Uncomment to expose for an external client.
+    # ports:
+    #   - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d app"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    container_name: report-redis
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  pgdata:
+  redisdata:
