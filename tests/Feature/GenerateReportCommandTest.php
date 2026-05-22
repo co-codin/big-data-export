@@ -41,6 +41,19 @@ class GenerateReportCommandTest extends TestCase
         $this->artisan('report:generate', ['category_id' => 0])->assertExitCode(2);
     }
 
+    public function test_throws_when_chunk_size_config_is_non_positive(): void
+    {
+        Config::set('reports.chunk_size', 0);
+
+        $mfr = Manufacturer::factory()->create();
+        Product::factory()->for($mfr)->create(['category_id' => 42]);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('reports.chunk_size must be a positive integer');
+
+        $this->artisan('report:generate', ['category_id' => 42]);
+    }
+
     public function test_dispatches_one_batch_per_manufacturer_with_chunked_jobs(): void
     {
         Bus::fake();

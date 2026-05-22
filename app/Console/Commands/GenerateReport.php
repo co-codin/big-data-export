@@ -53,6 +53,11 @@ class GenerateReport extends Command
         }
         $sync = (bool) $this->option('sync');
         $chunkSize = (int) config('reports.chunk_size', 5000);
+        if ($chunkSize <= 0) {
+            throw new \InvalidArgumentException(
+                "reports.chunk_size must be a positive integer; got {$chunkSize}."
+            );
+        }
         $subdir = config('reports.subdir', 'reports');
         $fromDate = $startedAt->copy()->subDays(7)->toDateString();
         $queueName = config('queue.connections.redis.queue', 'reports');
