@@ -11,8 +11,11 @@ class Price extends Model
     use HasFactory;
 
     protected $table = 'price';
+
     protected $primaryKey = 'price_id';
+
     public $timestamps = false;
+
     protected $fillable = ['product_id', 'price', 'price_date'];
 
     protected $casts = [

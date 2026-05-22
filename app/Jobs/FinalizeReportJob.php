@@ -22,6 +22,7 @@ class FinalizeReportJob implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 1;
+
     public int $timeout = 900;
 
     public function __construct(
@@ -41,6 +42,7 @@ class FinalizeReportJob implements ShouldQueue
                 'rp_id' => $this->reportProcessId,
             ]);
             $this->cleanupTmp();
+
             return;
         }
 
@@ -55,6 +57,7 @@ class FinalizeReportJob implements ShouldQueue
             Log::error('FinalizeReportJob: batch had failures, marking process as Ошибка', [
                 'rp_id' => $this->reportProcessId,
             ]);
+
             return;
         }
 
@@ -126,6 +129,7 @@ class FinalizeReportJob implements ShouldQueue
     {
         // Include the time already attributed to the chunk-dispatch step.
         $finalizeMs = (int) round((microtime(true) - $startMicro) * 1000);
+
         return (int) ($process->rp_exec_time ?? 0) + $finalizeMs;
     }
 

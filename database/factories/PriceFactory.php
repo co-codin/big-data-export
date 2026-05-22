@@ -26,6 +26,7 @@ class PriceFactory extends Factory
     public function on(string|Carbon $date): static
     {
         $resolved = $date instanceof Carbon ? $date->toDateString() : $date;
+
         return $this->state(fn () => ['price_date' => $resolved]);
     }
 

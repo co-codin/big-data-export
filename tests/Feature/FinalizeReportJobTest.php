@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Jobs\FinalizeReportJob;
 use App\Enums\ProcessStatusId;
+use App\Jobs\FinalizeReportJob;
 use App\Models\ReportProcess;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Log;

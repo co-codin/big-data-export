@@ -25,6 +25,7 @@ class GenerateReport extends Command
         $categoryId = (int) $this->argument('category_id');
         if ($categoryId <= 0) {
             $this->error('category_id должен быть положительным целым числом.');
+
             return self::INVALID;
         }
 
@@ -47,6 +48,7 @@ class GenerateReport extends Command
                 'ps_id' => ProcessStatusId::Error,
             ]);
             $this->error("Ошибка: для категории {$categoryId} не найдено товаров.");
+
             return self::FAILURE;
         }
         $sync = (bool) $this->option('sync');
@@ -137,6 +139,7 @@ class GenerateReport extends Command
                 outputFileName: $outputFileName,
                 hadFailures: false,
             ))->handle();
+
             return;
         }
 

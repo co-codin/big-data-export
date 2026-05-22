@@ -12,8 +12,11 @@ class Product extends Model
     use HasFactory;
 
     protected $table = 'product';
+
     protected $primaryKey = 'product_id';
+
     public $timestamps = false;
+
     protected $fillable = ['product_name', 'category_id', 'manufacturer_id'];
 
     public function manufacturer(): BelongsTo

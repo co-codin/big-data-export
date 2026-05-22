@@ -2,11 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Enums\ProcessStatusId;
 use App\Jobs\FinalizeReportJob;
 use App\Jobs\GenerateReportChunkJob;
 use App\Models\Manufacturer;
 use App\Models\Price;
-use App\Enums\ProcessStatusId;
 use App\Models\Product;
 use App\Models\ReportProcess;
 use Illuminate\Bus\Batch;

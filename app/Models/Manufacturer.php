@@ -11,8 +11,11 @@ class Manufacturer extends Model
     use HasFactory;
 
     protected $table = 'manufacturer';
+
     protected $primaryKey = 'manufacturer_id';
+
     public $timestamps = false;
+
     protected $fillable = ['manufacturer_name'];
 
     public function products(): HasMany

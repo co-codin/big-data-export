@@ -23,17 +23,17 @@ class SampleDataSeeder extends Seeder
         $initech = Manufacturer::create(['manufacturer_name' => 'Initech Ltd.']);
 
         // Category 1: Electronics (ACME + Globex)
-        $laptop  = Product::create([
+        $laptop = Product::create([
             'product_name' => 'Laptop Pro 14',
             'category_id' => 1,
             'manufacturer_id' => $acme->manufacturer_id,
         ]);
-        $phone   = Product::create([
+        $phone = Product::create([
             'product_name' => 'SmartPhone X',
             'category_id' => 1,
             'manufacturer_id' => $acme->manufacturer_id,
         ]);
-        $tablet  = Product::create([
+        $tablet = Product::create([
             'product_name' => 'TabletAir 10',
             'category_id' => 1,
             'manufacturer_id' => $globex->manufacturer_id,
@@ -45,7 +45,7 @@ class SampleDataSeeder extends Seeder
             'category_id' => 2,
             'manufacturer_id' => $initech->manufacturer_id,
         ]);
-        $desk  = Product::create([
+        $desk = Product::create([
             'product_name' => 'Standing Desk',
             'category_id' => 2,
             'manufacturer_id' => $initech->manufacturer_id,

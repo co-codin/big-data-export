@@ -12,7 +12,9 @@ class ReportProcess extends Model
     use HasFactory;
 
     protected $table = 'report_process';
+
     protected $primaryKey = 'rp_id';
+
     public $timestamps = false;
 
     protected $fillable = [
