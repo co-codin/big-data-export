@@ -33,6 +33,7 @@ class FinalizeReportJobTest extends TestCase
         $process->refresh();
         $this->assertSame(ProcessStatusId::Completed, $process->ps_id);
         $this->assertSame(config('reports.subdir').'/merged.csv', $process->rp_file_save_path);
+        $this->assertGreaterThanOrEqual(0, $process->rp_exec_time, 'rp_exec_time must not be negative');
 
         $finalPath = storage_path('app/'.$process->rp_file_save_path);
         $body = file_get_contents($finalPath);

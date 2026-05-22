@@ -139,12 +139,15 @@ class FinalizeReportJob implements ShouldQueue
      * report_process row to "now" (finalize complete), in milliseconds.
      * Carries no information about queue-wait vs. work time, but matches
      * what a user would expect "execution time" to mean.
+     *
+     * `absolute: true` matters — Carbon 3 returns a SIGNED delta by default,
+     * which yields negative ms when "now" is after the start.
      */
     private function wallClockMs(ReportProcess $process): int
     {
         $start = $process->rp_start_datetime ?? Carbon::now();
 
-        return (int) round(Carbon::now()->diffInMilliseconds($start));
+        return (int) round(Carbon::now()->diffInMilliseconds($start, absolute: true));
     }
 
     private function cleanupTmp(): void
