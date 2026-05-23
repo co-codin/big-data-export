@@ -7,7 +7,7 @@ DC := docker compose
 
 .PHONY: help up down build rebuild install migrate fresh seed report report-sync report-empty \
         work worker-logs queue-size queue-restart logs shell psql redis-cli ps clean \
-        test test-db
+        test test-db install-hooks uninstall-hooks lint
 
 help:
 	@echo "Targets:"
@@ -33,6 +33,9 @@ help:
 	@echo "  make ps             - container status"
 	@echo "  make test           - run PHPUnit feature/unit suite (auto-creates app_test DB)"
 	@echo "  make test-db        - just (re)create the app_test database"
+	@echo "  make lint           - run Pint --test against the whole repo"
+	@echo "  make install-hooks  - activate .githooks/pre-commit (Pint guard)"
+	@echo "  make uninstall-hooks - revert to default .git/hooks/"
 	@echo "  make clean          - remove volumes (DELETES DATA)"
 
 up:
@@ -100,6 +103,19 @@ test-db:
 
 test: test-db
 	$(DC) exec -T -e APP_ENV=testing -e DB_DATABASE=app_test app vendor/bin/phpunit --colors=always
+
+lint:
+	$(DC) exec -T app vendor/bin/pint --test
+
+install-hooks:
+	git config core.hooksPath .githooks
+	@echo "✓ pre-commit hook activated (core.hooksPath=.githooks)"
+	@echo "  Pint will lint staged .php files on every commit."
+	@echo "  Disable with 'make uninstall-hooks'."
+
+uninstall-hooks:
+	git config --unset core.hooksPath || true
+	@echo "✓ reverted to default .git/hooks/"
 
 clean:
 	$(DC) down -v

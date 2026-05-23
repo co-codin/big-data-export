@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+#
+# Pre-commit hook: runs Laravel Pint against staged PHP files.
+# Aborts the commit if any style issues are found.
+#
+# Install: `make install-hooks` (sets core.hooksPath to .githooks for this repo).
+#
+set -euo pipefail
+
+STAGED_PHP="$(git diff --cached --name-only --diff-filter=ACMR -- '*.php' | tr '\n' ' ')"
+
+if [[ -z "${STAGED_PHP// /}" ]]; then
+    exit 0
+fi
+
+run_pint() {
+    if docker compose ps --status running --format '{{.Service}}' 2>/dev/null | grep -qx app; then
+        # Pass staged file list via xargs; --test exits non-zero on style issues.
+        # shellcheck disable=SC2086
+        docker compose exec -T app vendor/bin/pint --test ${STAGED_PHP}
+        return
+    fi
+    if [[ -x vendor/bin/pint ]]; then
+        # shellcheck disable=SC2086
+        vendor/bin/pint --test ${STAGED_PHP}
+        return
+    fi
+    echo "pre-commit: cannot lint — neither the 'app' container is running"
+    echo "            nor is vendor/bin/pint available locally."
+    echo "            Run 'make up' or 'composer install', then retry the commit."
+    exit 1
+}
+
+if ! run_pint; then
+    echo
+    echo "pre-commit: Pint found style issues. Fix them with:"
+    echo "    docker compose exec app vendor/bin/pint --dirty"
+    echo "    git add <files>"
+    echo "    git commit"
+    exit 1
+fi

@@ -230,6 +230,23 @@ curl -OJ "http://localhost:8000${LATEST}"
 ls -la report_*.csv
 ```
 
+## Pre-commit hook (Pint)
+
+Версионированный pre-commit хук в `.githooks/pre-commit` запускает
+`vendor/bin/pint --test` на staged `*.php` файлах и прерывает коммит при
+style issues. Активация — один раз после клона:
+
+```bash
+make install-hooks      # git config core.hooksPath .githooks
+```
+
+Если приложение запущено в Docker, хук вызывает Pint через
+`docker compose exec app`; если есть локальный `vendor/bin/pint` — через
+него. Если ни того, ни другого — выводит понятную ошибку.
+
+Откатить: `make uninstall-hooks`.
+Прогнать вручную по всему репо: `make lint`.
+
 ## Тесты
 
 ```bash
