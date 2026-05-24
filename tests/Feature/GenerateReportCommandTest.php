@@ -6,13 +6,11 @@ use App\Enums\ProcessStatusId;
 use App\Jobs\FinalizeReportJob;
 use App\Jobs\GenerateReportChunkJob;
 use App\Models\Manufacturer;
-use App\Models\Price;
 use App\Models\Product;
 use App\Models\ReportProcess;
 use Illuminate\Bus\Batch;
 use Illuminate\Bus\PendingBatch;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Config;
 use Tests\TestCase;
@@ -80,84 +78,6 @@ class GenerateReportCommandTest extends TestCase
         Bus::assertBatched(function (PendingBatch $batch) {
             return $batch->jobs->every(fn ($j) => $j instanceof GenerateReportChunkJob);
         });
-    }
-
-    public function test_sync_runs_full_pipeline_inline_and_writes_one_merged_file_per_manufacturer(): void
-    {
-        // 3 products with prices in the last 7 days → multiple chunks if chunk_size=2.
-        Config::set('reports.chunk_size', 2);
-
-        $mfr = Manufacturer::factory()->create(['manufacturer_name' => 'Acme']);
-
-        foreach (['Widget', 'Gadget', 'Gizmo'] as $name) {
-            $p = Product::factory()->for($mfr)->create(['product_name' => $name, 'category_id' => 8]);
-            Price::factory()->for($p)->create(['price' => 10.00, 'price_date' => Carbon::today()->subDays(5)]);
-            Price::factory()->for($p)->create(['price' => 99.99, 'price_date' => Carbon::today()->subDays(1)]);
-        }
-
-        $this->artisan('report:generate', ['category_id' => 8, '--sync' => true])->assertExitCode(0);
-
-        $process = ReportProcess::first();
-        $this->assertNotNull($process);
-        $this->assertSame(ProcessStatusId::Completed, $process->ps_id);
-        $this->assertNotNull($process->rp_file_save_path);
-
-        $finalPath = storage_path('app/'.$process->rp_file_save_path);
-        $this->assertFileExists($finalPath);
-        $this->assertDirectoryDoesNotExist(storage_path('app/'.config('reports.subdir').'/tmp'));
-
-        $body = file_get_contents($finalPath);
-        $this->assertStringStartsWith("\xEF\xBB\xBF", $body);
-
-        $body = substr($body, 3); // strip BOM
-        $lines = array_values(array_filter(preg_split('/\r?\n/', trim($body))));
-        $this->assertSame('manufacturer_name,product_name,price,price_date', $lines[0]);
-        $this->assertCount(1 + 3 * 2, $lines, 'header + 2 rows per product × 3 products');
-
-        // Order preserved: chunks are concatenated in sorted-filename order,
-        // which matches product_id order. fputcsv leaves plain ASCII unquoted.
-        $this->assertStringContainsString(',Widget,10.00,', $lines[1]);
-        $this->assertStringContainsString(',Widget,99.99,', $lines[2]);
-        $this->assertStringContainsString(',Gadget,10.00,', $lines[3]);
-        $this->assertStringContainsString(',Gizmo,99.99,', $lines[6]);
-    }
-
-    public function test_sync_marks_row_as_error_when_a_chunk_fails(): void
-    {
-        Config::set('reports.chunk_size', 2);
-
-        // Two products in the category — enough to make chunkBoundariesFor()
-        // return a non-empty boundary list and trigger at least one chunk job.
-        $mfr = Manufacturer::factory()->create();
-        Product::factory()->count(2)->for($mfr)->create(['category_id' => 99]);
-
-        // Inject a fault: place a regular FILE where the chunk's tmp parent
-        // dir would be created. mkdir() then fails silently, fopen() fails,
-        // and the chunk job throws RuntimeException — which the dispatcher's
-        // sync branch must catch + forward to the finalizer as hadFailures.
-        $subdir = config('reports.subdir');
-        $tmpParent = storage_path('app/'.$subdir.'/tmp');
-        @mkdir(storage_path('app/'.$subdir), 0775, true);
-        file_put_contents($tmpParent, 'blocker');
-
-        try {
-            $this->artisan('report:generate', ['category_id' => 99, '--sync' => true])
-                ->assertExitCode(0);
-
-            $process = ReportProcess::first();
-            $this->assertNotNull($process);
-            $this->assertSame(
-                ProcessStatusId::Error,
-                $process->ps_id,
-                'sync path must propagate chunk failure to the finalizer, not leave row in Запуск'
-            );
-            $this->assertNull(
-                $process->rp_file_save_path,
-                'no output file should be recorded when chunks failed'
-            );
-        } finally {
-            @unlink($tmpParent);
-        }
     }
 
     /**

@@ -102,7 +102,6 @@ make migrate      # миграции
 make fresh        # пересоздать БД и засидить
 make seed         # засидить
 make report           CATEGORY=N    # асинхронный отчёт через очередь
-make report-sync      CATEGORY=N    # синхронный (для отладки джобы)
 make report-empty                   # категория без товаров
 make work                           # tail логов воркера
 make queue-size                     # длина очереди в Redis
@@ -117,7 +116,7 @@ make clean                          # снести volumes (удалит дан�
 ## CLI команда отчёта
 
 ```bash
-php artisan report:generate {category_id} [--sync]
+php artisan report:generate {category_id}
 ```
 
 - На каждого производителя в категории создаётся отдельная запись в
@@ -132,7 +131,6 @@ php artisan report:generate {category_id} [--sync]
 - Если в категории нет товаров — выводится сообщение об ошибке, команда
   возвращает FAILURE и в `report_process` создаётся запись со статусом
   `Ошибка` (без файла), чтобы попытка была видна на странице контроля.
-- `--sync` — выполнить джобу прямо в текущем процессе (удобно для отладки).
 
 После завершения воркер обновит запись на «Завершен» (с путём к файлу)
 или «Ошибка» при фатальном сбое. Фатальные ошибки логируются через
@@ -264,7 +262,7 @@ make test       # создаст БД app_test при необходимости
 | Тест-кейс | Что проверяет |
 |-----------|----------------|
 | `GenerateReportJobTest` | BOM, заголовок, две строки на товар (min→max), фильтр >= today-7, пропуск товаров без цен в окне, округление до 2 знаков, статус Ошибка + лог при сбое записи, безопасный no-op при отсутствии `report_process` |
-| `GenerateReportCommandTest` | Пустая категория → exit 1, нет строк, нет задач; обычная категория → строка в Запуск + Job в очереди (на каждого производителя); `--sync` исполняет inline |
+| `GenerateReportCommandTest` | Пустая категория → exit 1, нет строк, нет задач; обычная категория → строка в Запуск + Job в очереди (на каждого производителя); finally-callback wiring под Bus::fake для обеих ветвей (success / failure) |
 | `ProcessControllerTest` | `GET /` рендерит строки, error-строки получают класс `status-error`, `processes.download` отдаёт CSV с правильным `Content-Disposition`, 404 на missing rp / missing file / null path |
 
 ## Горизонтальное масштабирование

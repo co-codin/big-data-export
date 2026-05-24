@@ -21,7 +21,6 @@ class DispatchResultTest extends TestCase
                 new DispatchedReport(rpId: 1, manufacturerId: 10, chunkCount: 3),
                 new DispatchedReport(rpId: 2, manufacturerId: 20, chunkCount: 1),
             ],
-            sync: true,
         );
 
         $this->assertSame(
@@ -31,7 +30,6 @@ class DispatchResultTest extends TestCase
                     ['rpId' => 1, 'manufacturerId' => 10, 'chunkCount' => 3],
                     ['rpId' => 2, 'manufacturerId' => 20, 'chunkCount' => 1],
                 ],
-                'sync' => true,
             ],
             $result->toArray(),
         );
@@ -42,11 +40,10 @@ class DispatchResultTest extends TestCase
         $result = new DispatchResult(
             emptyCategory: true,
             reports: [],
-            sync: false,
         );
 
         $this->assertSame(
-            '{"emptyCategory":true,"reports":[],"sync":false}',
+            '{"emptyCategory":true,"reports":[]}',
             $result->toJson(),
         );
     }

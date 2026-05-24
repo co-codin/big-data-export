@@ -8,8 +8,7 @@ use Illuminate\Console\Command;
 class GenerateReport extends Command
 {
     protected $signature = 'report:generate
-        {category_id : Идентификатор категории товара}
-        {--sync : Run all chunk jobs + finalize inline (no queue, useful for debugging)}';
+        {category_id : Идентификатор категории товара}';
 
     protected $description = 'Поставить в очередь Redis Bus-batch заданий на формирование CSV-отчёта (с чанками по продуктам).';
 
@@ -27,10 +26,7 @@ class GenerateReport extends Command
             return self::INVALID;
         }
 
-        $result = $this->dispatcher->dispatchForCategory(
-            $categoryId,
-            (bool) $this->option('sync'),
-        );
+        $result = $this->dispatcher->dispatchForCategory($categoryId);
 
         if ($result->emptyCategory) {
             $this->error("Ошибка: для категории {$categoryId} не найдено товаров.");
@@ -38,10 +34,9 @@ class GenerateReport extends Command
             return self::FAILURE;
         }
 
-        $verb = $result->sync ? 'выполнено синхронно' : 'поставлено в очередь';
         foreach ($result->reports as $report) {
             $this->info(
-                "rp_id={$report->rpId}: {$verb} ".
+                "rp_id={$report->rpId}: поставлено в очередь ".
                 "(manufacturer={$report->manufacturerId}, чанков={$report->chunkCount})"
             );
         }

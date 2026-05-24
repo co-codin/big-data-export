@@ -44,7 +44,7 @@ class ReportDispatcher
         $this->queueName = $queueName ?? config('queue.connections.redis.queue', 'reports');
     }
 
-    public function dispatchForCategory(int $categoryId, bool $sync): DispatchResult
+    public function dispatchForCategory(int $categoryId): DispatchResult
     {
         $startedAt = Carbon::now();
         $startMicro = microtime(true);
@@ -60,7 +60,7 @@ class ReportDispatcher
                 (int) round((microtime(true) - $startMicro) * 1000),
             );
 
-            return new DispatchResult(emptyCategory: true, reports: [], sync: $sync);
+            return new DispatchResult(emptyCategory: true, reports: []);
         }
 
         $reports = [];
@@ -68,7 +68,6 @@ class ReportDispatcher
             $entry = $this->dispatchForManufacturer(
                 (int) $manufacturerId,
                 $categoryId,
-                $sync,
                 $pid,
                 $startedAt,
                 $fromDate,
@@ -78,7 +77,7 @@ class ReportDispatcher
             }
         }
 
-        return new DispatchResult(emptyCategory: false, reports: $reports, sync: $sync);
+        return new DispatchResult(emptyCategory: false, reports: $reports);
     }
 
     private function manufacturersInCategory(int $categoryId): Collection
@@ -92,7 +91,6 @@ class ReportDispatcher
     private function dispatchForManufacturer(
         int $manufacturerId,
         int $categoryId,
-        bool $sync,
         int $pid,
         Carbon $startedAt,
         string $fromDate,
@@ -116,7 +114,7 @@ class ReportDispatcher
             $tmpRelativeDir,
         );
 
-        $this->dispatchPipeline($chunkJobs, $rpId, $tmpRelativeDir, $outputFileName, $sync);
+        $this->dispatchAsBatch($chunkJobs, $rpId, $tmpRelativeDir, $outputFileName);
 
         return new DispatchedReport(
             rpId: $rpId,
@@ -188,44 +186,20 @@ class ReportDispatcher
     }
 
     /**
-     * Sync path runs every chunk + finalize inline so behavior is deterministic
-     * for tests and for debugging without the Redis worker. Each chunk is
-     * wrapped in try/catch so a single failure doesn't abort the loop and
-     * leave the row stuck in Запуск — `hadFailures` is forwarded to the
-     * finalizer, matching the async path's Bus::batch->hasFailures() semantics.
-     *
-     * Async path uses Bus::batch with a finally callback that fires the finalizer.
+     * Bus::batch fans the chunk jobs out across workers, then the finally
+     * callback fires the finalizer with whatever the batch reports —
+     * hasFailures() is true if any chunk failed (or the batch was cancelled),
+     * false on clean completion. The finalizer is responsible for flipping
+     * the report_process row to Завершен / Ошибка either way.
      *
      * @param  list<GenerateReportChunkJob>  $chunkJobs
      */
-    private function dispatchPipeline(
+    private function dispatchAsBatch(
         array $chunkJobs,
         int $rpId,
         string $tmpRelativeDir,
         string $outputFileName,
-        bool $sync,
     ): void {
-        if ($sync) {
-            $hadFailures = false;
-            foreach ($chunkJobs as $job) {
-                try {
-                    dispatch_sync($job);
-                } catch (\Throwable) {
-                    // The chunk has already logged via its own Log::error;
-                    // remember the outcome and let the finalizer surface it.
-                    $hadFailures = true;
-                }
-            }
-            dispatch_sync(new FinalizeReportJob(
-                reportProcessId: $rpId,
-                tmpRelativeDir: $tmpRelativeDir,
-                outputFileName: $outputFileName,
-                hadFailures: $hadFailures,
-            ));
-
-            return;
-        }
-
         $queueName = $this->queueName;
         Bus::batch($chunkJobs)
             ->name('report:'.$rpId)

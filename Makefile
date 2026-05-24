@@ -5,7 +5,7 @@ CATEGORY ?= 1
 
 DC := docker compose
 
-.PHONY: help up down build rebuild install migrate fresh seed report report-sync report-empty \
+.PHONY: help up down build rebuild install migrate fresh seed report report-empty \
         work worker-logs queue-size queue-restart logs shell psql redis-cli ps clean \
         test test-db install-hooks uninstall-hooks lint
 
@@ -20,7 +20,6 @@ help:
 	@echo "  make fresh          - drop + recreate schema and re-seed"
 	@echo "  make seed           - run database seeders"
 	@echo "  make report         - DISPATCH report job (CATEGORY=1 by default)"
-	@echo "  make report-sync    - run report inline (no queue, useful for debugging)"
 	@echo "  make report-empty   - try category 999 (no products -> error path)"
 	@echo "  make work           - tail the worker (queue:work) logs"
 	@echo "  make worker-logs    - same as 'make work'"
@@ -64,9 +63,6 @@ seed:
 
 report:
 	$(DC) exec app php artisan report:generate $(CATEGORY)
-
-report-sync:
-	$(DC) exec app php artisan report:generate $(CATEGORY) --sync
 
 report-empty:
 	$(DC) exec app php artisan report:generate 999 || true
