@@ -87,9 +87,6 @@ class ReportDispatcher
             ->pluck('manufacturer_id');
     }
 
-    /**
-     * @return array{rp_id:int,manufacturer_id:int,chunk_count:int}|null
-     */
     private function dispatchForManufacturer(
         int $manufacturerId,
         int $categoryId,
@@ -97,7 +94,7 @@ class ReportDispatcher
         int $pid,
         Carbon $startedAt,
         string $fromDate,
-    ): ?array {
+    ): ?DispatchedReport {
         $boundaries = $this->chunkBoundariesFor($manufacturerId, $categoryId);
         if (empty($boundaries)) {
             return null;
@@ -119,11 +116,11 @@ class ReportDispatcher
 
         $this->dispatchPipeline($chunkJobs, $rpId, $tmpRelativeDir, $outputFileName, $sync);
 
-        return [
-            'rp_id' => $rpId,
-            'manufacturer_id' => $manufacturerId,
-            'chunk_count' => count($chunkJobs),
-        ];
+        return new DispatchedReport(
+            rpId: $rpId,
+            manufacturerId: $manufacturerId,
+            chunkCount: count($chunkJobs),
+        );
     }
 
     /**

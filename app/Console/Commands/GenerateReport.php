@@ -41,8 +41,8 @@ class GenerateReport extends Command
         $verb = $result->sync ? 'выполнено синхронно' : 'поставлено в очередь';
         foreach ($result->reports as $report) {
             $this->info(
-                "rp_id={$report['rp_id']}: {$verb} ".
-                "(manufacturer={$report['manufacturer_id']}, чанков={$report['chunk_count']})"
+                "rp_id={$report->rpId}: {$verb} ".
+                "(manufacturer={$report->manufacturerId}, чанков={$report->chunkCount})"
             );
         }
 

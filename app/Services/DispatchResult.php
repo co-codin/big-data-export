@@ -10,9 +10,8 @@ class DispatchResult
 {
     /**
      * @param  bool  $emptyCategory  true when the requested category had no products
-     * @param  list<array{rp_id:int,manufacturer_id:int,chunk_count:int}>  $reports
-     *                                                                               one entry per (manufacturer, category)
-     *                                                                               pair that got a report_process row + jobs
+     * @param  list<DispatchedReport>  $reports  one entry per (manufacturer, category)
+     *                                           pair that got a report_process row + jobs
      * @param  bool  $sync  whether the pipeline ran inline (--sync) or via the queue
      */
     public function __construct(

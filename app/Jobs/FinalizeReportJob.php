@@ -145,9 +145,9 @@ class FinalizeReportJob implements ShouldQueue
      */
     private function wallClockMs(ReportProcess $process): int
     {
-        $start = $process->rp_start_datetime ?? Carbon::now();
-
-        return (int) round(Carbon::now()->diffInMilliseconds($start, absolute: true));
+        return (int) round(
+            Carbon::now()->diffInMilliseconds($process->rp_start_datetime, absolute: true)
+        );
     }
 
     private function cleanupTmp(): void
