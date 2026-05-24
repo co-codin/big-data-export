@@ -376,20 +376,6 @@ helm template report-app charts/report-app | less
   `/app/storage/app/{{ .Values.config.reportsSubdir }}`. На multi-node
   кластере поставьте `accessMode: ReadWriteMany` (NFS/EFS/Filestore)
 
-## CI
-
-`.github/workflows/ci.yml` — на каждом push и PR в main:
-- composer install (с кэшем) для PHP 8.2
-- сервис-контейнеры Postgres 16 + Redis 7
-- `vendor/bin/pint --test`
-- `php artisan migrate --force` на `app_test`
-- `vendor/bin/phpunit`
-
-`.github/workflows/helm.yml` — на изменения в `charts/**`:
-- `helm lint charts/report-app`
-- `helm template` + `kubeval` (для проверки, что рендер даёт валидные
-  Kubernetes-манифесты)
-
 ## Локально без Docker
 
 ```bash
