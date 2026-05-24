@@ -22,7 +22,10 @@ EXPOSE 8000
 
 CMD ["sh", "-c", "\
     [ -d vendor ] || composer install --no-interaction --prefer-dist; \
-    [ -f .env ] || cp .env.example .env; \
+    # .env is gitignored and meant to be ephemeral in this dev container — \
+    # always refresh from .env.example so new keys land reliably. For permanent \
+    # local overrides, use docker-compose's `environment:` block instead. \
+    cp .env.example .env; \
     mkdir -p storage/app/reports storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs bootstrap/cache; \
     until php -r 'new PDO(\"pgsql:host=\" . getenv(\"DB_HOST\") . \";port=\" . getenv(\"DB_PORT\") . \";dbname=\" . getenv(\"DB_DATABASE\"), getenv(\"DB_USERNAME\"), getenv(\"DB_PASSWORD\"));' 2>/dev/null; do \
         echo 'Waiting for postgres...'; sleep 2; \

@@ -21,6 +21,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "php", "artisan", "health:check"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
   worker:
     image: report-app:latest
@@ -44,12 +50,18 @@ services:
     command: >
       sh -c "
         [ -d vendor ] || composer install --no-interaction --prefer-dist;
-        [ -f .env ] || cp .env.example .env;
+        cp .env.example .env;
         until php -r 'new PDO(\"pgsql:host=\" . getenv(\"DB_HOST\") . \";port=\" . getenv(\"DB_PORT\") . \";dbname=\" . getenv(\"DB_DATABASE\"), getenv(\"DB_USERNAME\"), getenv(\"DB_PASSWORD\"));' 2>/dev/null; do
           echo 'worker: waiting for postgres...'; sleep 2;
         done;
         exec php artisan queue:work redis --queue=reports --tries=1 --timeout=1800 --sleep=1 -v
       "
+    healthcheck:
+      test: ["CMD", "php", "artisan", "health:check"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
   db:
     image: postgres:16-alpine

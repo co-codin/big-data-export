@@ -25,6 +25,7 @@ help:
 	@echo "  make worker-logs    - same as 'make work'"
 	@echo "  make queue-size     - show pending jobs in the reports queue"
 	@echo "  make queue-restart  - signal workers to restart (after code changes)"
+	@echo "  make queue-status   - show container health + queue depth + recent worker log"
 	@echo "  make logs           - tail app logs"
 	@echo "  make shell          - bash into the app container"
 	@echo "  make psql           - psql into the database"
@@ -77,6 +78,16 @@ queue-size:
 
 queue-restart:
 	$(DC) exec app php artisan queue:restart
+
+queue-status:
+	@echo "=== container health ==="
+	@$(DC) ps --format 'table {{.Service}}\t{{.State}}\t{{.Status}}'
+	@echo ""
+	@echo "=== queue depth (Redis) ==="
+	@$(DC) exec -T redis redis-cli LLEN "reportapp_database_queues:reports"
+	@echo ""
+	@echo "=== last 10 worker log lines ==="
+	@docker logs report-worker --tail=10 2>&1 || true
 
 logs:
 	$(DC) logs -f app
