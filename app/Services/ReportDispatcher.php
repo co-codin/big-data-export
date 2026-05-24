@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Data\DispatchedReport;
+use App\Data\DispatchResult;
 use App\Jobs\FinalizeReportJob;
 use App\Jobs\GenerateReportChunkJob;
 use App\Models\Product;

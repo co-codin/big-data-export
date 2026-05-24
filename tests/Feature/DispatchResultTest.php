@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Services\DispatchedReport;
-use App\Services\DispatchResult;
+use App\Data\DispatchedReport;
+use App\Data\DispatchResult;
 use Tests\TestCase;
 
 /**
