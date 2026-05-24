@@ -106,6 +106,7 @@ make report-empty                   # категория без товаров
 make work                           # tail логов воркера
 make queue-size                     # длина очереди в Redis
 make queue-restart                  # сигнал воркерам restart
+make queue-status                   # health всех контейнеров + queue depth + воркер-лог
 make logs                           # tail логов app
 make shell                          # bash внутри app-контейнера
 make psql                           # psql в БД
@@ -136,24 +137,70 @@ php artisan report:generate {category_id}
 или «Ошибка» при фатальном сбое. Фатальные ошибки логируются через
 `Log::error(...)` в `storage/logs/laravel.log`.
 
+## HTTP-эндпоинт для отправки отчёта
+
+`POST /reports` — то же, что и CLI, но из браузера или curl. Контроллер
+тонкий: парсит форму, вызывает `App\Services\ReportDispatcher::dispatchForCategory()`,
+делает redirect обратно на `/` с flash-сообщением.
+
+```bash
+# через curl (нужен CSRF-токен из формы):
+curl -c /tmp/c.txt http://localhost:8000/ > /tmp/page.html
+TOKEN=$(grep -oE 'name="_token" value="[^"]+"' /tmp/page.html | head -1 | sed 's/.*value="\([^"]*\)".*/\1/')
+
+curl -b /tmp/c.txt -c /tmp/c.txt -X POST http://localhost:8000/reports \
+    -d "_token=${TOKEN}" -d "category_id=1"
+# 302 → http://localhost:8000/
+```
+
+Ответы:
+- 302 + flash-успех — на странице появятся новые строки в статусе «Запуск»
+- 302 + flash-ошибка — для пустой категории (rp_process всё равно создаётся
+  со статусом «Ошибка»; категория без товаров — это бизнес-ошибка, а не
+  фатальная для логгера)
+- 422 — невалидный `category_id` (отсутствует / не целое / <= 0)
+
+## Health-check контейнеров
+
+`php artisan health:check` проверяет, что текущий контейнер видит свои
+зависимости (Postgres + Redis). Используется как docker-compose
+`healthcheck:` на сервисах `app` и `worker` — `docker compose ps`
+теперь показывает `(healthy)` для обоих, а не просто `running`.
+
+```bash
+make queue-status      # health всех контейнеров + queue depth + воркер-лог
+```
+
+Что НЕ ловит этот probe:
+- Воркер тихо падает на каждой джобе (нужен `queue:monitor reports` по
+  расписанию или Horizon).
+- Backlog в Redis (запустите `make queue-size`, чтобы увидеть длину).
+
 ## Страница контроля
 
 `GET /` — Blade-страница «Контроль выполнения процессов»:
 
-- Колонки: дата процесса, время выполнения (мс), PID, статус, файл
+- Сверху форма «Сформировать отчёт» — `<input type="number" name="category_id">`
+  + кнопка submit. POSTит на `/reports` (CSRF-protected web-route), после
+  redirect-а сверху показывается flash-сообщение (зелёное на успех, красное
+  на ошибку). Никакого JS — стандартный server-side rendered form.
+- Колонки таблицы: дата процесса, время выполнения (мс), PID, статус, файл
 - Строки в статусе **Ошибка** подсвечены красным
 - Для успешных процессов имя файла — гиперссылка на загрузку через
   `GET /processes/{rp_id}/download`
+- Завершённые строки, чей файл удалили с диска, скрываются из листинга
+  (контроллер фильтрует через `Storage::exists()`)
 - Без JavaScript (страница статическая, обновление по F5)
 
 ## Проверка через curl
 
-После `make up` приложение слушает на `http://localhost:8000`. Два публичных
-маршрута — оба `GET`-only:
+После `make up` приложение слушает на `http://localhost:8000`. Три публичных
+маршрута:
 
 | Маршрут                              | Назначение                                         |
 |--------------------------------------|----------------------------------------------------|
 | `GET /`                              | страница «Контроль выполнения процессов» (HTML)    |
+| `POST /reports`                      | отправить отчёт (форма с CSRF; см. раздел выше)    |
 | `GET /processes/{rp_id}/download`    | скачать CSV отчёта по записи из `report_process`   |
 
 ### Базовые запросы
