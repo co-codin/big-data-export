@@ -63,6 +63,44 @@ services:
       retries: 3
       start_period: 60s
 
+  scheduler:
+    image: report-app:latest
+    container_name: report-scheduler
+    volumes:
+      - .:/app
+    env_file:
+      - .env.example
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_DATABASE: app
+      DB_USERNAME: app
+      DB_PASSWORD: secret
+      REDIS_HOST: redis
+    depends_on:
+      app:
+        condition: service_started
+      db:
+        condition: service_healthy
+    # schedule:work is the long-running Laravel scheduler — picks up the
+    # Schedule::command(...) entries in routes/console.php (currently just
+    # reports:reap-stuck every 5 minutes).
+    command: >
+      sh -c "
+        [ -d vendor ] || composer install --no-interaction --prefer-dist;
+        cp .env.example .env;
+        until php -r 'new PDO(\"pgsql:host=\" . getenv(\"DB_HOST\") . \";port=\" . getenv(\"DB_PORT\") . \";dbname=\" . getenv(\"DB_DATABASE\"), getenv(\"DB_USERNAME\"), getenv(\"DB_PASSWORD\"));' 2>/dev/null; do
+          echo 'scheduler: waiting for postgres...'; sleep 2;
+        done;
+        exec php artisan schedule:work -v
+      "
+    healthcheck:
+      test: ["CMD", "php", "artisan", "health:check"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
   db:
     image: postgres:16-alpine
     container_name: report-db

@@ -160,6 +160,24 @@ curl -b /tmp/c.txt -c /tmp/c.txt -X POST http://localhost:8000/reports \
   фатальная для логгера)
 - 422 — невалидный `category_id` (отсутствует / не целое / <= 0)
 
+## Планировщик
+
+Контейнер `scheduler` запускает `php artisan schedule:work` и берёт
+задачи из `routes/console.php`. Сейчас там только одна — `reports:reap-stuck`
+каждые 5 минут, которая помечает «зависшие» в статусе **Запуск**
+дольше 30 минут как **Ошибка** (на случай, если воркер упал до того,
+как Bus::batch finally callback успел сработать).
+
+```bash
+make scheduler-logs    # tail логов контейнера scheduler
+make reap-stuck        # вручную прогнать reaper, не ждать тика
+docker compose exec scheduler php artisan schedule:list   # увидеть расписание + Next Due
+```
+
+Чтобы добавить новую задачу — допишите `Schedule::command(...)` в
+`routes/console.php`. Контейнер перечитает файл при следующем тике
+(он перезагружается между запусками автоматически).
+
 ## Health-check контейнеров
 
 `php artisan health:check` проверяет, что текущий контейнер видит свои

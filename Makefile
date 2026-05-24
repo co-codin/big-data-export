@@ -6,12 +6,12 @@ CATEGORY ?= 1
 DC := docker compose
 
 .PHONY: help up down build rebuild install migrate fresh seed report report-empty \
-        work worker-logs queue-size queue-restart logs shell psql redis-cli ps clean \
+        work worker-logs scheduler-logs reap-stuck queue-size queue-restart logs shell psql redis-cli ps clean \
         test test-db install-hooks uninstall-hooks lint
 
 help:
 	@echo "Targets:"
-	@echo "  make up             - start the stack (postgres + redis + app + worker)"
+	@echo "  make up             - start the stack (postgres + redis + app + worker + scheduler)"
 	@echo "  make down           - stop the stack"
 	@echo "  make build          - build the app image"
 	@echo "  make rebuild        - rebuild without cache"
@@ -23,6 +23,8 @@ help:
 	@echo "  make report-empty   - try category 999 (no products -> error path)"
 	@echo "  make work           - tail the worker (queue:work) logs"
 	@echo "  make worker-logs    - same as 'make work'"
+	@echo "  make scheduler-logs - tail the scheduler (schedule:work) logs"
+	@echo "  make reap-stuck     - manually run the stuck-Запуск janitor (instead of waiting)"
 	@echo "  make queue-size     - show pending jobs in the reports queue"
 	@echo "  make queue-restart  - signal workers to restart (after code changes)"
 	@echo "  make queue-status   - show container health + queue depth + recent worker log"
@@ -72,6 +74,12 @@ work:
 	$(DC) logs -f worker
 
 worker-logs: work
+
+scheduler-logs:
+	$(DC) logs -f scheduler
+
+reap-stuck:
+	$(DC) exec app php artisan reports:reap-stuck
 
 queue-size:
 	$(DC) exec redis redis-cli LLEN "reportapp_database_queues:reports"
