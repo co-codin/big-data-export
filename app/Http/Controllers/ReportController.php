@@ -24,7 +24,7 @@ class ReportController
         $result = $this->dispatcher->dispatchForCategory($categoryId);
 
         if ($result->emptyCategory) {
-            return back()->withErrors([
+            return redirect()->route('processes.index')->withErrors([
                 'category_id' => "Для категории {$categoryId} не найдено товаров.",
             ]);
         }
@@ -32,7 +32,7 @@ class ReportController
         $rpIds = implode(', ', array_map(fn ($r) => $r->rpId, $result->reports));
         $count = count($result->reports);
 
-        return back()->with(
+        return redirect()->route('processes.index')->with(
             'success',
             "Отчёт поставлен в очередь — производителей: {$count}, rp_id: {$rpIds}."
         );

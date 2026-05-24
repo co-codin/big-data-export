@@ -1,11 +1,23 @@
 #!/usr/bin/env bash
 #
-# Pre-commit hook: runs Laravel Pint against staged PHP files.
-# Aborts the commit if any style issues are found.
+# Pre-commit hook:
+#   1. Always runs Laravel Pint against staged PHP files (style gate).
+#   2. Runs the PHPUnit suite when staged PHP files touch runtime code
+#      (app/, database/, tests/, routes/, config/, bootstrap/).
+#      Documentation-only PHP changes or other non-runtime tweaks skip
+#      PHPUnit so the hook stays fast.
 #
-# Install: `make install-hooks` (sets core.hooksPath to .githooks for this repo).
+# Skip the whole hook for an emergency commit with:
+#   SKIP_PRECOMMIT=1 git commit ...
+#
+# Install: `make install-hooks` (sets core.hooksPath to .githooks).
 #
 set -euo pipefail
+
+if [[ "${SKIP_PRECOMMIT:-0}" == "1" ]]; then
+    echo "pre-commit: skipped by SKIP_PRECOMMIT=1"
+    exit 0
+fi
 
 STAGED_PHP="$(git diff --cached --name-only --diff-filter=ACMR -- '*.php' | tr '\n' ' ')"
 
@@ -13,29 +25,69 @@ if [[ -z "${STAGED_PHP// /}" ]]; then
     exit 0
 fi
 
-run_pint() {
+# Decide whether PHPUnit should run too. Only when staged PHP files live
+# in directories that actually affect runtime behavior.
+should_run_phpunit() {
+    for f in $STAGED_PHP; do
+        case "$f" in
+            app/*|database/*|tests/*|routes/*|config/*|bootstrap/*) return 0 ;;
+        esac
+    done
+    return 1
+}
+
+# Run a command either inside the running `app` container (if available)
+# or via the local `vendor/bin`. Bails with a friendly message otherwise.
+in_app() {
+    local bin="$1"; shift
     if docker compose ps --status running --format '{{.Service}}' 2>/dev/null | grep -qx app; then
-        # Pass staged file list via xargs; --test exits non-zero on style issues.
-        # shellcheck disable=SC2086
-        docker compose exec -T app vendor/bin/pint --test ${STAGED_PHP}
-        return
+        # shellcheck disable=SC2068
+        docker compose exec -T app "vendor/bin/$bin" $@
+        return $?
     fi
-    if [[ -x vendor/bin/pint ]]; then
-        # shellcheck disable=SC2086
-        vendor/bin/pint --test ${STAGED_PHP}
-        return
+    if [[ -x "vendor/bin/$bin" ]]; then
+        # shellcheck disable=SC2068
+        "vendor/bin/$bin" $@
+        return $?
     fi
-    echo "pre-commit: cannot lint — neither the 'app' container is running"
-    echo "            nor is vendor/bin/pint available locally."
+    echo "pre-commit: cannot run '$bin' — neither the 'app' container is running"
+    echo "            nor is vendor/bin/$bin available locally."
     echo "            Run 'make up' or 'composer install', then retry the commit."
     exit 1
 }
 
-if ! run_pint; then
+# ----- 1. Pint -----
+# shellcheck disable=SC2086
+if ! in_app pint --test ${STAGED_PHP}; then
     echo
     echo "pre-commit: Pint found style issues. Fix them with:"
     echo "    docker compose exec app vendor/bin/pint --dirty"
     echo "    git add <files>"
     echo "    git commit"
     exit 1
+fi
+
+# ----- 2. PHPUnit (conditional) -----
+# Delegate to `make test` so the env setup (APP_ENV=testing, app_test DB,
+# test reports subdir) stays in one place. Falls back to local phpunit if
+# the docker stack isn't running.
+if should_run_phpunit; then
+    echo "pre-commit: runtime PHP files staged — running PHPUnit"
+    if docker compose ps --status running --format '{{.Service}}' 2>/dev/null | grep -qx app; then
+        if ! make test; then
+            echo
+            echo "pre-commit: PHPUnit failed. Fix the failing tests, then re-stage and commit."
+            echo "            To skip the gate in an emergency: SKIP_PRECOMMIT=1 git commit ..."
+            exit 1
+        fi
+    elif [[ -x vendor/bin/phpunit ]]; then
+        if ! vendor/bin/phpunit --colors=always; then
+            echo
+            echo "pre-commit: PHPUnit failed. Fix the failing tests, then re-stage and commit."
+            echo "            To skip the gate in an emergency: SKIP_PRECOMMIT=1 git commit ..."
+            exit 1
+        fi
+    else
+        echo "pre-commit: skipping PHPUnit — no app container and no local vendor/bin/phpunit"
+    fi
 fi

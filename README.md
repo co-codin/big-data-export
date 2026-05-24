@@ -293,22 +293,33 @@ curl -OJ "http://localhost:8000${LATEST}"
 ls -la report_*.csv
 ```
 
-## Pre-commit hook (Pint)
+## Pre-commit hook (Pint + PHPUnit)
 
-Версионированный pre-commit хук в `.githooks/pre-commit` запускает
-`vendor/bin/pint --test` на staged `*.php` файлах и прерывает коммит при
-style issues. Активация — один раз после клона:
+Версионированный pre-commit хук в `.githooks/pre-commit` делает два прохода:
+
+1. **Pint** на staged `*.php` файлах — всегда. Прерывает коммит при
+   style issues.
+2. **PHPUnit** — только если среди staged файлов есть что-то под
+   `app/`, `database/`, `tests/`, `routes/`, `config/`, `bootstrap/`
+   (т.е. runtime-код, который тесты реально покрывают). README,
+   Helm-чарт, Dockerfile, `.env.example` — коммитятся без прогона тестов.
+
+Активация — один раз после клона:
 
 ```bash
 make install-hooks      # git config core.hooksPath .githooks
 ```
 
-Если приложение запущено в Docker, хук вызывает Pint через
-`docker compose exec app`; если есть локальный `vendor/bin/pint` — через
-него. Если ни того, ни другого — выводит понятную ошибку.
+Хук сам выбирает, где запустить Pint/PHPUnit — внутри запущенного
+`app`-контейнера, или локально через `vendor/bin`, или ругается если
+ни того ни другого. PHPUnit делегируется в `make test`, чтобы env
+(APP_ENV=testing, app_test DB, reports_test subdir) оставался в одном
+месте.
 
-Откатить: `make uninstall-hooks`.
-Прогнать вручную по всему репо: `make lint`.
+Экстренный обход — `SKIP_PRECOMMIT=1 git commit ...`.
+
+Откатить полностью: `make uninstall-hooks`.
+Прогнать вручную по всему репо: `make lint` / `make test`.
 
 ## Тесты
 
