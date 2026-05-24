@@ -189,7 +189,11 @@ class ReportDispatcher
 
     /**
      * Sync path runs every chunk + finalize inline so behavior is deterministic
-     * for tests and for debugging without the Redis worker.
+     * for tests and for debugging without the Redis worker. Each chunk is
+     * wrapped in try/catch so a single failure doesn't abort the loop and
+     * leave the row stuck in Запуск — `hadFailures` is forwarded to the
+     * finalizer, matching the async path's Bus::batch->hasFailures() semantics.
+     *
      * Async path uses Bus::batch with a finally callback that fires the finalizer.
      *
      * @param  list<GenerateReportChunkJob>  $chunkJobs
@@ -202,15 +206,22 @@ class ReportDispatcher
         bool $sync,
     ): void {
         if ($sync) {
+            $hadFailures = false;
             foreach ($chunkJobs as $job) {
-                $job->handle();
+                try {
+                    dispatch_sync($job);
+                } catch (\Throwable) {
+                    // The chunk has already logged via its own Log::error;
+                    // remember the outcome and let the finalizer surface it.
+                    $hadFailures = true;
+                }
             }
-            (new FinalizeReportJob(
+            dispatch_sync(new FinalizeReportJob(
                 reportProcessId: $rpId,
                 tmpRelativeDir: $tmpRelativeDir,
                 outputFileName: $outputFileName,
-                hadFailures: false,
-            ))->handle();
+                hadFailures: $hadFailures,
+            ));
 
             return;
         }

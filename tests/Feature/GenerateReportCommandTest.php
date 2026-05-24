@@ -122,6 +122,44 @@ class GenerateReportCommandTest extends TestCase
         $this->assertStringContainsString(',Gizmo,99.99,', $lines[6]);
     }
 
+    public function test_sync_marks_row_as_error_when_a_chunk_fails(): void
+    {
+        Config::set('reports.chunk_size', 2);
+
+        // Two products in the category — enough to make chunkBoundariesFor()
+        // return a non-empty boundary list and trigger at least one chunk job.
+        $mfr = Manufacturer::factory()->create();
+        Product::factory()->count(2)->for($mfr)->create(['category_id' => 99]);
+
+        // Inject a fault: place a regular FILE where the chunk's tmp parent
+        // dir would be created. mkdir() then fails silently, fopen() fails,
+        // and the chunk job throws RuntimeException — which the dispatcher's
+        // sync branch must catch + forward to the finalizer as hadFailures.
+        $subdir = config('reports.subdir');
+        $tmpParent = storage_path('app/'.$subdir.'/tmp');
+        @mkdir(storage_path('app/'.$subdir), 0775, true);
+        file_put_contents($tmpParent, 'blocker');
+
+        try {
+            $this->artisan('report:generate', ['category_id' => 99, '--sync' => true])
+                ->assertExitCode(0);
+
+            $process = ReportProcess::first();
+            $this->assertNotNull($process);
+            $this->assertSame(
+                ProcessStatusId::Error,
+                $process->ps_id,
+                'sync path must propagate chunk failure to the finalizer, not leave row in Запуск'
+            );
+            $this->assertNull(
+                $process->rp_file_save_path,
+                'no output file should be recorded when chunks failed'
+            );
+        } finally {
+            @unlink($tmpParent);
+        }
+    }
+
     /**
      * Verifies the success branch of the finally-callback closure registered
      * on Bus::batch: a successful batch must dispatch FinalizeReportJob with
