@@ -75,4 +75,19 @@ class ReportProcessRepository
             'ps_id' => ProcessStatusId::Error,
         ]);
     }
+
+    /**
+     * Reaper helper: flip every row that's been sitting in Запуск longer
+     * than $olderThan to Ошибка in one statement. Returns the number of
+     * rows updated so the caller can log it. The use case is "worker
+     * died after a chunk succeeded but before the batch's finally
+     * callback fired" — the row would otherwise never reach a terminal
+     * state.
+     */
+    public function markStuckAsError(Carbon $olderThan): int
+    {
+        return ReportProcess::where('ps_id', ProcessStatusId::Started->value)
+            ->where('rp_start_datetime', '<', $olderThan)
+            ->update(['ps_id' => ProcessStatusId::Error->value]);
+    }
 }

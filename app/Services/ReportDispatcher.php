@@ -102,7 +102,7 @@ class ReportDispatcher
 
         $process = $this->repo->createStarted($pid, $startedAt);
         $rpId = (int) $process->rp_id;
-        $outputFileName = $this->outputFileName($manufacturerId, $categoryId, $startedAt);
+        $outputFileName = $this->outputFileName($manufacturerId, $categoryId, $startedAt, $rpId);
         $tmpRelativeDir = $this->subdir.'/tmp/'.$rpId;
 
         $chunkJobs = $this->buildChunkJobs(
@@ -146,13 +146,21 @@ class ReportDispatcher
         return $boundaries;
     }
 
-    private function outputFileName(int $manufacturerId, int $categoryId, Carbon $startedAt): string
+    /**
+     * Spec format is `report_{mfr}_{cat}_{ГГГГ-ММ-ДД_ЧЧ-ММ-СС}.csv`. We append
+     * `_{rp_id}` to prevent two concurrent same-second dispatches from
+     * overwriting each other's output — rp_id is monotonic by Postgres
+     * sequence so collision is structurally impossible. Single-token
+     * deviation that keeps the spec's prefix and parsing intact.
+     */
+    private function outputFileName(int $manufacturerId, int $categoryId, Carbon $startedAt, int $rpId): string
     {
         return sprintf(
-            'report_%d_%d_%s.csv',
+            'report_%d_%d_%s_%d.csv',
             $manufacturerId,
             $categoryId,
-            $startedAt->format('Y-m-d_H-i-s')
+            $startedAt->format('Y-m-d_H-i-s'),
+            $rpId,
         );
     }
 

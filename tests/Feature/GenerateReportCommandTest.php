@@ -11,6 +11,7 @@ use App\Models\ReportProcess;
 use Illuminate\Bus\Batch;
 use Illuminate\Bus\PendingBatch;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Config;
 use Tests\TestCase;
@@ -120,6 +121,55 @@ class GenerateReportCommandTest extends TestCase
                 && str_ends_with($job->outputFileName, '.csv')
                 && str_contains($job->tmpRelativeDir, (string) $rp->rp_id);
         });
+    }
+
+    /**
+     * Two same-second dispatches for the same (manufacturer, category)
+     * must produce DIFFERENT output filenames — the rp_id suffix
+     * guarantees uniqueness even when format('Y-m-d_H-i-s') collides.
+     */
+    public function test_concurrent_same_second_dispatches_produce_unique_filenames(): void
+    {
+        Bus::fake();
+
+        $mfr = Manufacturer::factory()->create();
+        Product::factory()->for($mfr)->create(['category_id' => 50]);
+
+        // Freeze time so both dispatches share the exact same Y-m-d_H-i-s.
+        Carbon::setTestNow(Carbon::parse('2026-01-01 12:00:00'));
+        try {
+            $this->artisan('report:generate', ['category_id' => 50])->assertExitCode(0);
+            $this->artisan('report:generate', ['category_id' => 50])->assertExitCode(0);
+        } finally {
+            Carbon::setTestNow();
+        }
+
+        $batches = Bus::dispatchedBatches();
+        $this->assertCount(2, $batches);
+
+        // Trigger both finally callbacks with a success-stub Batch so we can
+        // inspect the FinalizeReportJob that each one dispatches.
+        $successBatch = $this->createMock(Batch::class);
+        $successBatch->method('hasFailures')->willReturn(false);
+        foreach ($batches as $batch) {
+            foreach ($batch->finallyCallbacks() as $cb) {
+                $cb($successBatch);
+            }
+        }
+
+        $fileNames = [];
+        Bus::assertDispatched(FinalizeReportJob::class, function (FinalizeReportJob $job) use (&$fileNames) {
+            $fileNames[] = $job->outputFileName;
+
+            return true;
+        });
+
+        $this->assertCount(2, $fileNames);
+        $this->assertNotEquals(
+            $fileNames[0],
+            $fileNames[1],
+            'second-precision timestamp shared, but the rp_id suffix must keep filenames unique'
+        );
     }
 
     /**
