@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "report-app.fullname" . }}-scheduler
+  labels:
+    {{- include "report-app.componentLabels" (dict "root" . "component" "scheduler") | nindent 4 }}
+spec:
+  # MUST be 1. Multiple schedule:work pods would double-fire every cron entry.
+  replicas: {{ .Values.scheduler.replicas }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "report-app.componentSelectorLabels" (dict "root" . "component" "scheduler") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "report-app.componentSelectorLabels" (dict "root" . "component" "scheduler") | nindent 8 }}
+    spec:
+      containers:
+        - name: scheduler
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["php", "artisan", "schedule:work", "-v"]
+          envFrom:
+            {{- include "report-app.envFrom" . | nindent 12 }}
+          livenessProbe:
+            exec:
+              command: ["php", "artisan", "health:check"]
+            initialDelaySeconds: 60
+            periodSeconds: 60
+            timeoutSeconds: 10
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.scheduler.resources | nindent 12 }}

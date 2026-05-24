@@ -1,0 +1,164 @@
+# ----------------------------------------------------------------------------
+# report-app — Helm values
+# ----------------------------------------------------------------------------
+# Override per-environment with `helm install -f values-prod.yaml ...` or
+# `helm upgrade --set image.tag=...`.
+
+image:
+  repository: report-app
+  tag: latest
+  # Use Never for local kind/minikube/Docker Desktop where you've loaded the
+  # image with `kind load docker-image` or built it inside the cluster's
+  # docker daemon. Switch to IfNotPresent / Always when pulling from a registry.
+  pullPolicy: IfNotPresent
+
+# Application-level configuration. Anything secret (DB password, APP_KEY)
+# lives in `secrets:` below — those go into a Kubernetes Secret resource.
+config:
+  appName: ReportApp
+  appEnv: production
+  appDebug: false
+  appUrl: http://localhost
+  appLocale: ru
+  logChannel: stack
+  logLevel: info
+
+  # Where in storage/app/ the CSV files land. Producer + worker + finalize
+  # all read this; keep them in sync.
+  reportsSubdir: reports
+
+  # Products per chunk job. 5000 is sensible for ~100M rows.
+  chunkSize: 5000
+
+# These become a Kubernetes Secret. Override with --set or a sealed-secrets
+# operator in production — DO NOT commit real secrets.
+secrets:
+  # Generate fresh with `php artisan key:generate --show`. The default below
+  # works only for dev; CHANGE IT before any real deploy.
+  appKey: base64:+A3zeXyLaVhQB86SSB98HYdQDTgrDI9iZiaL9Uu3VSo=
+  dbPassword: secret
+
+# ----------------------------------------------------------------------------
+# App (HTTP) — runs `php artisan serve` behind a Service + optional Ingress.
+# Stateless: scale freely.
+# ----------------------------------------------------------------------------
+app:
+  replicas: 2
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+ingress:
+  enabled: true
+  className: ""        # leave blank to use the default ingress class
+  annotations: {}
+  host: report-app.local
+  tls: []
+  # tls:
+  #   - secretName: report-app-tls
+  #     hosts: [report-app.example.com]
+
+# ----------------------------------------------------------------------------
+# Worker — runs `queue:work redis --queue=reports`.
+# Scale this horizontally; Redis FIFO splits jobs across replicas automatically.
+# ----------------------------------------------------------------------------
+worker:
+  replicas: 2
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+# ----------------------------------------------------------------------------
+# Scheduler — runs `schedule:work` (currently fires reports:reap-stuck every 5 min).
+# MUST be replicas: 1 — running schedule:work on multiple pods would double-fire.
+# ----------------------------------------------------------------------------
+scheduler:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# ----------------------------------------------------------------------------
+# Migrations — Helm pre-install/pre-upgrade hook that runs `artisan migrate`.
+# Runs to completion before app/worker/scheduler get the new image.
+# ----------------------------------------------------------------------------
+migrations:
+  enabled: true
+  backoffLimit: 3
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+# ----------------------------------------------------------------------------
+# Postgres — bundled for self-contained `helm install`. In production, prefer
+# a managed Postgres (RDS / Cloud SQL) and set `postgres.enabled: false`
+# while pointing the app at the external host.
+# ----------------------------------------------------------------------------
+postgres:
+  enabled: true
+  image: postgres:16-alpine
+  service:
+    port: 5432
+  database: app
+  username: app
+  storage:
+    size: 5Gi
+    storageClassName: ""   # empty = use cluster default
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+# ----------------------------------------------------------------------------
+# Redis — bundled queue backend. Same advice as postgres.enabled for prod.
+# ----------------------------------------------------------------------------
+redis:
+  enabled: true
+  image: redis:7-alpine
+  service:
+    port: 6379
+  storage:
+    size: 1Gi
+    storageClassName: ""
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# ----------------------------------------------------------------------------
+# Reports CSV files. Mount a PVC so files survive pod restarts and are shared
+# between app (serving downloads) + worker (writing) + scheduler.
+# ----------------------------------------------------------------------------
+reportsVolume:
+  enabled: true
+  size: 5Gi
+  storageClassName: ""
+  # ReadWriteMany is ideal but cluster-dependent (NFS/EFS/Filestore). The
+  # default below assumes a single-node cluster where ReadWriteOnce + the
+  # same node is fine. For multi-node, set this to ReadWriteMany.
+  accessMode: ReadWriteOnce

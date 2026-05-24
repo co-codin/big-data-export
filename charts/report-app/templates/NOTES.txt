@@ -1,0 +1,31 @@
+{{ include "report-app.fullname" . }} deployed.
+
+Access the control page:
+{{- if .Values.ingress.enabled }}
+
+  http://{{ .Values.ingress.host }}/
+
+  (make sure {{ .Values.ingress.host }} resolves to your cluster's ingress
+  IP — add to /etc/hosts for local clusters)
+{{- else }}
+
+  kubectl port-forward svc/{{ include "report-app.fullname" . }}-app 8000:{{ .Values.app.service.port }}
+  open http://localhost:8000
+{{- end }}
+
+Dispatch a report:
+
+  kubectl exec deploy/{{ include "report-app.fullname" . }}-app -- \
+    php artisan report:generate 1
+
+Watch the queue:
+
+  kubectl logs -f deploy/{{ include "report-app.fullname" . }}-worker
+
+Scheduler (handles reports:reap-stuck every 5 minutes):
+
+  kubectl logs -f deploy/{{ include "report-app.fullname" . }}-scheduler
+
+Pods:
+
+  kubectl get pods -l app.kubernetes.io/instance={{ .Release.Name }}

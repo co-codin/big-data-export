@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "report-app.fullname" . }}-worker
+  labels:
+    {{- include "report-app.componentLabels" (dict "root" . "component" "worker") | nindent 4 }}
+spec:
+  replicas: {{ .Values.worker.replicas }}
+  selector:
+    matchLabels:
+      {{- include "report-app.componentSelectorLabels" (dict "root" . "component" "worker") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "report-app.componentSelectorLabels" (dict "root" . "component" "worker") | nindent 8 }}
+    spec:
+      containers:
+        - name: worker
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - php
+            - artisan
+            - queue:work
+            - redis
+            - --queue=reports
+            - --tries=1
+            - --timeout=1800
+            - --sleep=1
+            - -v
+          envFrom:
+            {{- include "report-app.envFrom" . | nindent 12 }}
+          livenessProbe:
+            exec:
+              command: ["php", "artisan", "health:check"]
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}
+          {{- if .Values.reportsVolume.enabled }}
+          volumeMounts:
+            - name: reports
+              mountPath: /app/storage/app/{{ .Values.config.reportsSubdir }}
+          {{- end }}
+      {{- if .Values.reportsVolume.enabled }}
+      volumes:
+        - name: reports
+          persistentVolumeClaim:
+            claimName: {{ include "report-app.fullname" . }}-reports
+      {{- end }}

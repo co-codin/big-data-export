@@ -1,0 +1,21 @@
+apiVersion: v2
+name: report-app
+description: |
+  Laravel 11 + PostgreSQL + Redis report generator. Async pipeline: a
+  producer command/HTTP-endpoint creates report_process rows in Запуск
+  state and dispatches Bus::batch of chunk jobs onto Redis; workers
+  pull from the reports queue, stream CSV partials, then a finalizer
+  job concatenates them and flips the row to Завершен / Ошибка.
+
+type: application
+version: 0.1.0          # chart version
+appVersion: "1.0.0"     # application version (Laravel app)
+
+keywords:
+  - laravel
+  - reports
+  - csv
+  - redis-queue
+
+maintainers:
+  - name: co-codin

@@ -1,0 +1,37 @@
+name: Helm
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "charts/**"
+      - ".github/workflows/helm.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "charts/**"
+      - ".github/workflows/helm.yml"
+
+jobs:
+  lint:
+    name: helm lint + template
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.16.1
+
+      - name: helm lint
+        run: helm lint charts/report-app
+
+      - name: helm template (default values)
+        run: helm template report-app charts/report-app > /tmp/rendered.yaml
+
+      - name: kubeval rendered manifests
+        uses: instrumenta/kubeval-action@master
+        with:
+          files: /tmp/rendered.yaml
+        continue-on-error: true   # kubeval can be flaky on newer k8s APIs

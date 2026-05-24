@@ -1,0 +1,17 @@
+{{- if .Values.postgres.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "report-app.fullname" . }}-postgres
+  labels:
+    {{- include "report-app.componentLabels" (dict "root" . "component" "postgres") | nindent 4 }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.postgres.service.port }}
+      targetPort: pg
+      protocol: TCP
+      name: pg
+  selector:
+    {{- include "report-app.componentSelectorLabels" (dict "root" . "component" "postgres") | nindent 4 }}
+{{- end -}}

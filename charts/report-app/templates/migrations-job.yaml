@@ -1,0 +1,31 @@
+{{- if .Values.migrations.enabled -}}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "report-app.fullname" . }}-migrations
+  labels:
+    {{- include "report-app.componentLabels" (dict "root" . "component" "migrations") | nindent 4 }}
+  annotations:
+    # Run BEFORE the workload pods are updated, so they never see a schema
+    # newer than the code expects (or older).
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "0"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: {{ .Values.migrations.backoffLimit }}
+  template:
+    metadata:
+      labels:
+        {{- include "report-app.componentSelectorLabels" (dict "root" . "component" "migrations") | nindent 8 }}
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: migrate
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["php", "artisan", "migrate", "--force"]
+          envFrom:
+            {{- include "report-app.envFrom" . | nindent 12 }}
+          resources:
+            {{- toYaml .Values.migrations.resources | nindent 12 }}
+{{- end -}}

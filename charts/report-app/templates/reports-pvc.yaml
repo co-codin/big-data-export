@@ -1,0 +1,17 @@
+{{- if .Values.reportsVolume.enabled -}}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "report-app.fullname" . }}-reports
+  labels:
+    {{- include "report-app.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - {{ .Values.reportsVolume.accessMode }}
+  resources:
+    requests:
+      storage: {{ .Values.reportsVolume.size }}
+  {{- with .Values.reportsVolume.storageClassName }}
+  storageClassName: {{ . | quote }}
+  {{- end }}
+{{- end -}}

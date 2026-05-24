@@ -339,6 +339,57 @@ docker compose up -d --scale worker=4
 Redis-список — потокобезопасная FIFO-очередь: задания распределятся между
 воркерами автоматически.
 
+## Kubernetes (Helm)
+
+Helm-чарт лежит в `charts/report-app/`. Развёртывает весь стек:
+Postgres + Redis (StatefulSets с PVC), App / Worker / Scheduler
+(Deployments), Job для миграций (хук `pre-install`/`pre-upgrade`),
+ConfigMap, Secret, Ingress, и общий PVC для CSV-отчётов.
+
+```bash
+# Локальный kind/minikube/Docker Desktop k8s
+helm install report-app ./charts/report-app
+
+# С нестандартными значениями
+helm install report-app ./charts/report-app -f my-values.yaml
+
+# Внешний managed-Postgres + managed-Redis (для прода)
+helm install report-app ./charts/report-app \
+  --set postgres.enabled=false --set postgres.externalHost=prod-db.example.com \
+  --set redis.enabled=false --set redis.externalHost=prod-redis.example.com \
+  --set secrets.appKey="base64:..." \
+  --set secrets.dbPassword="..."
+
+# Линтинг + dry-run рендер
+helm lint charts/report-app
+helm template report-app charts/report-app | less
+```
+
+Ключевые контракты чарта:
+- `migrations` — `pre-install`/`pre-upgrade` Job, запускает `artisan migrate
+  --force` до раскатки app/worker/scheduler с новым образом
+- `scheduler.replicas` **обязан** быть = 1 (`schedule:work` double-firing
+  на двух подах сломал бы reaper)
+- Worker'ы масштабируются горизонтально: `--set worker.replicas=N`,
+  Redis FIFO раскидает джобы автоматически
+- `reportsVolume` — общий PVC, монтируется в app + worker по пути
+  `/app/storage/app/{{ .Values.config.reportsSubdir }}`. На multi-node
+  кластере поставьте `accessMode: ReadWriteMany` (NFS/EFS/Filestore)
+
+## CI
+
+`.github/workflows/ci.yml` — на каждом push и PR в main:
+- composer install (с кэшем) для PHP 8.2
+- сервис-контейнеры Postgres 16 + Redis 7
+- `vendor/bin/pint --test`
+- `php artisan migrate --force` на `app_test`
+- `vendor/bin/phpunit`
+
+`.github/workflows/helm.yml` — на изменения в `charts/**`:
+- `helm lint charts/report-app`
+- `helm template` + `kubeval` (для проверки, что рендер даёт валидные
+  Kubernetes-манифесты)
+
 ## Локально без Docker
 
 ```bash
