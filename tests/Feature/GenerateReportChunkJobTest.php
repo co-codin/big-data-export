@@ -120,4 +120,34 @@ class GenerateReportChunkJobTest extends TestCase
         $this->assertFileExists($partPath);
         $this->assertSame('', file_get_contents($partPath));
     }
+
+    /**
+     * `distinctOnPrice` is private but bakes its `$direction` argument
+     * into raw SQL. The guard against invalid input is unreachable from
+     * the public API today (callers pass literal 'ASC' / 'DESC'), but
+     * tested directly via reflection because a future refactor that
+     * sources direction from user input would otherwise be a SQL-injection
+     * vector.
+     */
+    public function test_distinct_on_price_rejects_invalid_direction(): void
+    {
+        $job = new GenerateReportChunkJob(
+            reportProcessId: 1,
+            manufacturerId: 1,
+            categoryId: 1,
+            chunkIndex: 0,
+            startProductId: 1,
+            endProductId: 1,
+            fromDate: '2026-01-01',
+            tmpRelativeDir: 'unused',
+        );
+
+        $method = new \ReflectionMethod($job, 'distinctOnPrice');
+        $method->setAccessible(true);
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('direction must be ASC or DESC');
+
+        $method->invoke($job, 'DROP TABLE price; --', [1]);
+    }
 }
