@@ -2,10 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Enums\ProcessStatusId;
 use App\Models\ReportProcess;
 use App\Repositories\ReportProcessRepository;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 class ReportProcessRepositoryTest extends TestCase
@@ -84,5 +86,29 @@ class ReportProcessRepositoryTest extends TestCase
         $this->assertTrue($this->repo->hasDownloadableFile($withFile));
         $this->assertFalse($this->repo->hasDownloadableFile($orphanPath));
         $this->assertFalse($this->repo->hasDownloadableFile($noPath));
+    }
+
+    public function test_create_started_inserts_row_with_status_started(): void
+    {
+        $startedAt = Carbon::now();
+
+        $process = $this->repo->createStarted(pid: 1234, startedAt: $startedAt);
+
+        $this->assertSame(1234, $process->rp_pid);
+        $this->assertSame(ProcessStatusId::Started, $process->ps_id);
+        $this->assertNull($process->rp_exec_time);
+        $this->assertNull($process->rp_file_save_path);
+    }
+
+    public function test_record_empty_attempt_inserts_row_with_status_error(): void
+    {
+        $startedAt = Carbon::now();
+
+        $process = $this->repo->recordEmptyAttempt(pid: 5678, startedAt: $startedAt, execMs: 42);
+
+        $this->assertSame(5678, $process->rp_pid);
+        $this->assertSame(ProcessStatusId::Error, $process->ps_id);
+        $this->assertSame(42, $process->rp_exec_time);
+        $this->assertNull($process->rp_file_save_path);
     }
 }
